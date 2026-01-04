@@ -123,13 +123,6 @@ const TradePerformanceCard = ({ tradeGroup }: { tradeGroup: { ticker: string, tr
         return marketAvg > 0 ? Math.round(marketAvg * (1 + (Math.random() * 0.03 - 0.015))) : 0;
     }, [marketAvg, ticker]);
 
-const MOCK_CURRENT_PRICES: Record<string, number> = {
-    'BTC': 92500000,
-    'ETH': 3520000,
-    'XRP': 815,
-    'SOL': 245000
-};
-
     const dayLow = useMemo(() => marketAvg > 0 ? Math.round(marketAvg * 0.95) : 0, [marketAvg]);
     const dayHigh = useMemo(() => marketAvg > 0 ? Math.round(marketAvg * 1.05) : 0, [marketAvg]);
 
