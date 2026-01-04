@@ -362,14 +362,14 @@ const CalculatorDialog = ({
                 {activeChartType === '원화' && (
                     <div className="space-y-4">
                         {mockUserPortfolio[selectedCoin.value] ? (
-                            <div className="bg-blue-500/10 border border-blue-500/20 rounded-lg p-4 space-y-4">
+                            <div className="bg-secondary/20 border border-border/50 rounded-lg p-4 space-y-4">
                                 <div className="flex justify-between items-start">
                                     <div className="flex items-center gap-3">
-                                        <div className="w-8 h-8 rounded-full bg-blue-500/20 flex items-center justify-center shrink-0">
-                                            <RefreshCcw className="w-4 h-4 text-blue-400" />
+                                        <div className="w-8 h-8 rounded-full bg-primary/10 flex items-center justify-center shrink-0">
+                                            <RefreshCcw className="w-4 h-4 text-primary" />
                                         </div>
                                         <div className="space-y-0.5">
-                                            <span className="text-sm text-blue-400 font-bold block">빗썸 자산 연동됨</span>
+                                            <span className="text-sm text-primary font-bold block">빗썸 자산 연동됨</span>
                                             <span className="text-[10px] text-muted-foreground block">
                                                 보유중인 {selectedCoin.value} 자산을 불러왔습니다
                                             </span>
@@ -377,20 +377,20 @@ const CalculatorDialog = ({
                                     </div>
                                     <div className="text-right">
                                         <span className="text-xs text-muted-foreground block mb-1">총 평가금액</span>
-                                        <span className="text-xl font-bold text-white tracking-tight">
+                                        <span className="text-xl font-bold text-foreground tracking-tight">
                                             {((parseFloat(avgPrice) * parseFloat(holdings)) / 10000).toLocaleString('ko-KR', { maximumFractionDigits: 0 })}만원
                                         </span>
                                     </div>
                                 </div>
 
-                                <div className="grid grid-cols-2 gap-4 pt-4 border-t border-blue-500/20">
+                                <div className="grid grid-cols-2 gap-4 pt-4 border-t border-border/50">
                                     <div className="flex flex-row items-center gap-2">
                                         <span className="text-xs text-muted-foreground whitespace-nowrap">평균단가</span>
-                                        <span className="text-lg font-bold text-blue-100">{parseFloat(avgPrice).toLocaleString()}원</span>
+                                        <span className="text-lg font-bold text-foreground">{parseFloat(avgPrice).toLocaleString()}원</span>
                                     </div>
                                     <div className="flex flex-row items-center justify-end gap-2 text-right">
                                         <span className="text-xs text-muted-foreground whitespace-nowrap">보유수량</span>
-                                        <span className="text-lg font-bold text-blue-100">{parseFloat(holdings).toLocaleString()} {selectedCoin.value}</span>
+                                        <span className="text-lg font-bold text-foreground">{parseFloat(holdings).toLocaleString()} {selectedCoin.value}</span>
                                     </div>
                                 </div>
                             </div>
@@ -419,7 +419,7 @@ const CalculatorDialog = ({
                         </div>
                         
                         {krwResult && (
-                            <div className="bg-muted p-4 rounded-lg space-y-3 mt-2">
+                            <div className="bg-secondary/20 border border-border/50 p-4 rounded-lg space-y-3 mt-2">
                                 <div className="flex justify-between items-center">
                                     <span className="text-sm text-muted-foreground">예상 평단가</span>
                                     <span className="font-bold text-lg text-primary">{krwResult.newAvg.toLocaleString('ko-KR', { maximumFractionDigits: 0 })}원</span>
@@ -437,10 +437,10 @@ const CalculatorDialog = ({
                                     <span>총 투자금 {(krwResult.totalCost / 10000).toLocaleString('ko-KR', { maximumFractionDigits: 0 })}만원</span>
                                 </div>
                                 <div className="flex gap-2 mt-2 w-full">
-                                    <Button className="flex-1 bg-primary hover:bg-primary/90 text-black font-bold h-10 text-xs sm:text-sm px-1">
+                                    <Button className="flex-1 bg-primary hover:bg-primary/90 text-primary-foreground font-bold h-10 text-xs sm:text-sm px-1">
                                         {selectedCoin.value} 추가 매수하기
                                     </Button>
-                                    <Button className="flex-1 bg-[#26A17B] hover:bg-[#26A17B]/90 text-white font-bold h-10 text-xs sm:text-sm px-1">
+                                    <Button className="flex-1 bg-emerald-600 hover:bg-emerald-700 text-white font-bold h-10 text-xs sm:text-sm px-1">
                                         USDT 대여 후 {selectedCoin.value} 매수하기
                                     </Button>
                                 </div>
@@ -474,7 +474,7 @@ const CalculatorDialog = ({
                                             <Input type="number" value={investKrw} onChange={e => setInvestKrw(e.target.value)} placeholder="1000000" />
                                         </div>
                                         <div className="grid grid-cols-2 gap-2">
-                                            <div className="bg-zinc-800/50 p-2 rounded-lg border border-border/50 text-xs text-center">
+                                            <div className="bg-secondary/20 p-2 rounded-lg border border-border/50 text-xs text-center">
                                                 <span className="text-muted-foreground block mb-1">비트코인 대신 {selectedCoin.value} 매수 시</span>
                                                 <span className="font-mono font-bold block text-primary text-sm">{satResult.altQty?.toFixed(2)} {selectedCoin.value} 확보</span>
                                             </div>
@@ -486,18 +486,18 @@ const CalculatorDialog = ({
                                 <TabsContent value="holding" className="space-y-6">
                                      <div className="space-y-3">
                                         {mockUserPortfolio[selectedCoin.value] ? (
-                                             <div className="bg-blue-500/10 border border-blue-500/20 rounded-lg p-3 flex items-center justify-between">
+                                             <div className="bg-secondary/20 border border-border/50 rounded-lg p-3 flex items-center justify-between">
                                                 <div className="flex items-center gap-2">
-                                                    <div className="w-8 h-8 rounded-full bg-blue-500/20 flex items-center justify-center shrink-0">
-                                                        <RefreshCcw className="w-4 h-4 text-blue-400" />
+                                                    <div className="w-8 h-8 rounded-full bg-primary/10 flex items-center justify-center shrink-0">
+                                                        <RefreshCcw className="w-4 h-4 text-primary" />
                                                     </div>
                                                     <div className="flex flex-col">
-                                                        <span className="text-xs text-blue-400 font-bold">빗썸 자산 연동됨</span>
+                                                        <span className="text-xs text-primary font-bold">빗썸 자산 연동됨</span>
                                                         <span className="text-[10px] text-muted-foreground">보유중인 {selectedCoin.label} 자산을 불러왔습니다</span>
                                                     </div>
                                                 </div>
                                                 <div className="text-right">
-                                                    <span className="text-sm font-bold text-white block">
+                                                    <span className="text-sm font-bold text-foreground block">
                                                         {parseFloat(holdings).toLocaleString()} {selectedCoin.value}
                                                     </span>
                                                 </div>
@@ -510,7 +510,7 @@ const CalculatorDialog = ({
                                         )}
                                         
                                         <div className="grid grid-cols-2 gap-2">
-                                            <div className="bg-zinc-800/50 p-2 rounded-lg border border-border/50 text-xs text-center">
+                                            <div className="bg-secondary/20 p-2 rounded-lg border border-border/50 text-xs text-center">
                                                 <span className="text-muted-foreground block mb-1">현재가 매도 시</span>
                                                 <span className="font-mono font-bold block text-primary text-sm">{satResult.btcFromSellNow?.toFixed(8) || 0} BTC 확보</span>
                                             </div>
@@ -585,7 +585,7 @@ const CalculatorDialog = ({
                                     */}
                                 </div>
 
-                                <div className="bg-muted p-4 rounded-lg space-y-4 border-2 border-primary/10 mt-6">
+                                <div className="bg-secondary/20 border border-border/50 p-4 rounded-lg space-y-4 mt-6">
                                     <div className="space-y-2">
                                         <div className="flex justify-between items-center pb-2 border-b border-border/50">
                                             <span className="text-sm text-muted-foreground">
@@ -609,10 +609,10 @@ const CalculatorDialog = ({
                                         </div>
                                         
                                         <div className="flex gap-2 mt-4 w-full">
-                                            <Button className="flex-1 bg-primary hover:bg-primary/90 text-black font-bold h-10 text-xs sm:text-sm px-1">
+                                            <Button className="flex-1 bg-primary hover:bg-primary/90 text-primary-foreground font-bold h-10 text-xs sm:text-sm px-1">
                                                 {satoshiMode === 'investment' ? `${selectedCoin.value} 매수하기` : `${selectedCoin.value} 매도하기`}
                                             </Button>
-                                            <Button className="flex-1 bg-[#26A17B] hover:bg-[#26A17B]/90 text-white font-bold h-10 text-xs sm:text-sm px-1">
+                                            <Button className="flex-1 bg-emerald-600 hover:bg-emerald-700 text-white font-bold h-10 text-xs sm:text-sm px-1">
                                                 {satoshiMode === 'investment' ? `BTC 대여 후 ${selectedCoin.value} 매수하기` : `${selectedCoin.value} 대여 후 매도하기`}
                                             </Button>
                                         </div>
@@ -662,18 +662,18 @@ const CalculatorDialog = ({
                                 <div className="pt-4 border-t border-border/50">
                                     {mockUserPortfolio[selectedCoin.value] ? (
                                         <div className="mb-4">
-                                            <div className="bg-blue-500/10 border border-blue-500/20 rounded-lg p-3 flex items-center justify-between">
+                                            <div className="bg-secondary/20 border border-border/50 rounded-lg p-3 flex items-center justify-between">
                                                 <div className="flex items-center gap-2">
-                                                    <div className="w-8 h-8 rounded-full bg-blue-500/20 flex items-center justify-center shrink-0">
-                                                        <RefreshCcw className="w-4 h-4 text-blue-400" />
+                                                    <div className="w-8 h-8 rounded-full bg-primary/10 flex items-center justify-center shrink-0">
+                                                        <RefreshCcw className="w-4 h-4 text-primary" />
                                                     </div>
                                                     <div className="flex flex-col text-left">
-                                                        <span className="text-xs text-blue-400 font-bold">빗썸 자산 연동됨</span>
+                                                        <span className="text-xs text-primary font-bold">빗썸 자산 연동됨</span>
                                                         <span className="text-[10px] text-muted-foreground">보유중인 {selectedCoin.label} 자산을 불러왔습니다</span>
                                                     </div>
                                                 </div>
                                                 <div className="text-right">
-                                                    <span className="text-sm font-bold text-white block">
+                                                    <span className="text-sm font-bold text-foreground block">
                                                         {(parseFloat(mcHoldings) || 0).toLocaleString()} {selectedCoin.value}
                                                     </span>
                                                 </div>
