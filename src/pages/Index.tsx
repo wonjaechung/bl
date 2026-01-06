@@ -8,6 +8,7 @@ import AssetRow from "@/components/AssetRow";
 import PromoBanner from "@/components/PromoBanner";
 import BottomNav from "@/components/BottomNav";
 import EconomicCalendar from "@/components/dashboard/economic-calendar";
+import DataLab from "@/components/dashboard/DataLab";
 
 const cryptoAssets = [
   { name: "테더 골드", symbol: "XAUT", price: "6,300,000", change: "+0.91%", volume: "2,097백만", badge: "new" as const },
@@ -39,6 +40,8 @@ const Index = () => {
             <div className="px-4 pt-4 pb-8">
               <EconomicCalendar />
             </div>
+          ) : headerTab === "datalab" ? (
+            <DataLab />
           ) : (
             <>
               <LoginPrompt />

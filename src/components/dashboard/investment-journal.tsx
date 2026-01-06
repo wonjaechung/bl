@@ -2,7 +2,7 @@
 
 import { useState, useMemo } from 'react';
 import { format } from 'date-fns';
-import { BookOpen, PenTool, Check, X, ArrowRight, Plus, Quote, Calendar, TrendingUp, TrendingDown } from 'lucide-react';
+import { BookOpen, PenTool, Check, X, ArrowRight, Plus, Quote, Calendar, TrendingUp, TrendingDown, List } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
@@ -28,6 +28,13 @@ import {
     DialogHeader,
     DialogTitle,
 } from "@/components/ui/dialog"
+import {
+    Accordion,
+    AccordionContent,
+    AccordionItem,
+    AccordionTrigger,
+} from "@/components/ui/accordion"
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { indicatorData, IndicatorId } from './market-indicators-carousel';
 
 // --- Types ---
@@ -52,6 +59,15 @@ export type TradeLog = {
     }
 };
 
+export type TradeReview = {
+    tradeId: number;
+    moodEmoji: string;
+    moodScore: number;
+    tags: string[];
+    content: string;
+    date: string;
+};
+
 export type JournalEntry = {
     id: number;
     date: string;
@@ -60,6 +76,7 @@ export type JournalEntry = {
     trades: TradeLog[];
     moodScore?: number;
     moodEmoji?: string;
+    reviews?: Record<number, TradeReview>; // Added reviews map
 };
 
 // --- Mock Data ---
@@ -73,7 +90,7 @@ export const mockRawTrades: TradeLog[] = [
     { id: 106, date: format(new Date(), 'yyyy-MM-dd'), time: '16:00:00', ticker: 'BTC', type: 'sell', price: 93500000, amount: 0.05, total: 4675000, orderType: 'market', pnl: 75000, pnlPercent: 1.63, snapshot: { rsi: 60, dominance: 52.2, kimchiPremium: 3.3 } },
 ];
 
-const MOCK_CURRENT_PRICES: Record<string, number> = {
+export const MOCK_CURRENT_PRICES: Record<string, number> = {
     'BTC': 92500000,
     'ETH': 3520000,
     'XRP': 815,
@@ -273,13 +290,16 @@ interface InvestmentJournalProps {
 export default function InvestmentJournal({ selectedDate }: InvestmentJournalProps) {
     const [journalEntries, setJournalEntries] = useState<JournalEntry[]>([]);
     const [journalContent, setJournalContent] = useState('');
-    const [diaryStep, setDiaryStep] = useState<'select' | 'write'>('select');
+    const [diaryStep, setDiaryStep] = useState<'dashboard' | 'trades' | 'write'>('dashboard');
     const [selectedTicker, setSelectedTicker] = useState<string>('all');
+    const [selectedTradeId, setSelectedTradeId] = useState<number | null>(null);
     const [moodScore, setMoodScore] = useState([50]); // 0-100
     const [moodEmoji, setMoodEmoji] = useState<string>('');
     const [mistakeTags, setMistakeTags] = useState<string[]>([]);
     const [activeRightIndicators, setActiveRightIndicators] = useState<IndicatorId[]>(['kimchi', 'volume', 'fear', 'drop']);
     const [isIndicatorDialogOpen, setIsIndicatorDialogOpen] = useState(false);
+    const [isSheetOpen, setIsSheetOpen] = useState(false);
+    const [viewMode, setViewMode] = useState<'ticker' | 'timeline'>('ticker');
 
     // Update journal content when date changes
     useMemo(() => {
@@ -292,20 +312,72 @@ export default function InvestmentJournal({ selectedDate }: InvestmentJournalPro
         [journalEntries, selectedDate]
     );
 
+    // Get current reviews from entry or empty
+    const currentReviews = useMemo(() => currentEntry?.reviews || {}, [currentEntry]);
+
+    const handleOpenReview = (tradeId: number) => {
+        setSelectedTradeId(tradeId);
+        // Pre-fill if exists
+        const review = currentReviews[tradeId];
+        if (review) {
+            setMoodEmoji(review.moodEmoji);
+            setMoodScore([review.moodScore]);
+            setMistakeTags(review.tags);
+            setJournalContent(review.content);
+        } else {
+            setMoodEmoji('');
+            setMoodScore([50]);
+            setMistakeTags([]);
+            setJournalContent('');
+        }
+        setDiaryStep('write');
+        setIsSheetOpen(true);
+    };
+
     const handleSaveJournal = () => {
         // Get trades for the selected ticker (or all)
         const currentTrades = selectedTicker === 'all' 
             ? mockRawTrades 
             : mockRawTrades.filter(t => t.ticker === selectedTicker);
 
+        // If we are reviewing a specific trade
+        let newReviews = { ...currentReviews };
+        if (selectedTradeId) {
+             newReviews[selectedTradeId] = {
+                tradeId: selectedTradeId,
+                moodEmoji,
+                moodScore: moodScore[0],
+                tags: mistakeTags,
+                content: journalContent,
+                date: format(selectedDate, 'yyyy-MM-dd')
+            };
+        }
+
+        
+        // Calculate Derived Mood if global mood is empty but we have reviews
+        let derivedMoodEmoji = moodEmoji;
+        let derivedMoodScore = moodScore[0];
+        
+        if (!selectedTradeId && !moodEmoji) {
+            // If we are saving a non-trade specific update (or just flushing reviews), check if we can derive from reviews
+            const reviewValues = Object.values(newReviews);
+            if (reviewValues.length > 0) {
+                 // Simple logic: Use the latest review's mood or average
+                 // For now, let's just pick the last one or keep it empty if user didn't set global
+                 // Actually, user requirement is "Synced". So let's average the score and pick the most frequent emoji?
+                 // Or just leave it as is, but display logic handles it.
+            }
+        }
+
         const newEntry: JournalEntry = {
-            id: Date.now(),
+            id: currentEntry?.id || Date.now(),
             date: format(selectedDate, 'yyyy-MM-dd'),
-            content: journalContent,
-            tags: mistakeTags,
+            content: selectedTradeId ? (currentEntry?.content || '') : journalContent, // Preserve main content if reviewing trade
+            tags: selectedTradeId ? (currentEntry?.tags || []) : mistakeTags,
             trades: currentTrades,
-            moodScore: moodScore[0],
-            moodEmoji: moodEmoji
+            moodScore: selectedTradeId ? (currentEntry?.moodScore) : moodScore[0],
+            moodEmoji: selectedTradeId ? (currentEntry?.moodEmoji) : moodEmoji,
+            reviews: newReviews
         };
 
         setJournalEntries(prev => {
@@ -315,8 +387,14 @@ export default function InvestmentJournal({ selectedDate }: InvestmentJournalPro
         });
 
         // Reset state
-        setDiaryStep('select');
-        setSelectedTicker('all');
+        if (selectedTradeId) {
+             setDiaryStep('trades'); // Go back to trades list
+             setSelectedTradeId(null);
+        } else {
+             setDiaryStep('dashboard');
+        }
+        
+        // Only reset form fields if we are done or switching context (handled by useEffect/logic elsewhere usually, but here manual)
         setMoodEmoji('');
         setMistakeTags([]);
         setJournalContent('');
@@ -357,17 +435,159 @@ export default function InvestmentJournal({ selectedDate }: InvestmentJournalPro
         // Simple PnL estimation
         const pnl = trades.filter(t => t.pnl).reduce((sum, t) => sum + (t.pnl || 0), 0);
         
-        return { buyTotal, sellTotal, net, pnl, avgBuyPrice, avgSellPrice, count: trades.length, buyMarketRatio, buyLimitRatio, sellMarketRatio, sellLimitRatio };
-    }, [selectedTicker]);
+        // Calculate Average Score from Reviews
+        const reviewsList = Object.values(currentReviews).filter(r => trades.some(t => t.id === r.tradeId));
+        const totalScore = reviewsList.reduce((sum, r) => sum + r.moodScore, 0);
+        const avgScore = reviewsList.length > 0 ? Math.round(totalScore / reviewsList.length) : 0;
+
+        // Calculate Volume (Total Buy + Sell Value)
+        const totalVolume = buyTotal + sellTotal;
+        // Mock Average Daily Volume (e.g., set it to roughly 80% of today's volume or a fixed reasonable amount for demo)
+        const avgDailyVolume = 8000000; // 8M KRW arbitrary mock
+        
+        return { buyTotal, sellTotal, net, pnl, avgBuyPrice, avgSellPrice, count: trades.length, buyMarketRatio, buyLimitRatio, sellMarketRatio, sellLimitRatio, avgScore, totalVolume, avgDailyVolume };
+    }, [selectedTicker, currentReviews]);
+
+    const journalStats = useMemo(() => {
+         const trades = selectedTicker === 'all' 
+            ? mockRawTrades 
+            : mockRawTrades.filter(t => t.ticker === selectedTicker);
+         const totalTrades = trades.length;
+         const reviewedCount = Object.keys(currentReviews).filter(id => trades.find(t => t.id === Number(id))).length;
+         return { totalTrades, reviewedCount };
+    }, [selectedTicker, currentReviews]);
+
+    // Group trades by ticker for 'ticker' view mode
+    const tradesByTicker = useMemo(() => {
+        const groups: Record<string, TradeLog[]> = {};
+        mockRawTrades.forEach(trade => {
+            if (!groups[trade.ticker]) groups[trade.ticker] = [];
+            groups[trade.ticker].push(trade);
+        });
+        
+        // Sort each group: Unreviewed Sell trades first, then others
+        Object.keys(groups).forEach(ticker => {
+             groups[ticker].sort((a, b) => {
+                 // Priority 1: Unreviewed Sell (Needs Review)
+                 const aNeedsReview = a.type === 'sell' && !currentReviews[a.id];
+                 const bNeedsReview = b.type === 'sell' && !currentReviews[b.id];
+                 if (aNeedsReview && !bNeedsReview) return -1;
+                 if (!aNeedsReview && bNeedsReview) return 1;
+                 
+                 // Priority 2: Time (Newest first)
+                 return b.time.localeCompare(a.time);
+             });
+        });
+
+        return groups;
+    }, [currentReviews]);
+
+    const renderTradeItem = (trade: TradeLog) => (
+        <div 
+            key={trade.id} 
+            className={cn(
+                "group relative overflow-hidden rounded-xl border p-3 transition-all hover:shadow-md",
+                currentReviews[trade.id] 
+                    ? "bg-muted/20 border-border/50" 
+                    : "bg-card border-border hover:border-primary/50"
+            )}
+        >
+            {/* Status Bar */}
+            <div className={cn(
+                "absolute left-0 top-0 bottom-0 w-1",
+                trade.type === 'buy' ? "bg-red-500" : "bg-blue-500"
+            )} />
+
+            <div className="pl-2 pr-0.5">
+                {/* 1. Header: Ticker & Total/PnL */}
+                <div className="flex justify-between items-center mb-1.5">
+                    <span className="font-black text-lg tracking-tight leading-none">{trade.ticker}</span>
+                    <div className="text-right leading-none">
+                        {trade.pnl ? (
+                            <div className={cn(
+                                "font-bold font-mono text-sm",
+                                trade.pnl > 0 ? "text-red-500" : "text-blue-500"
+                            )}>
+                                {trade.pnl > 0 ? '+' : ''}{trade.pnl.toLocaleString()}
+                                <span className="text-[10px] ml-0.5 font-normal opacity-70 text-muted-foreground">KRW</span>
+                            </div>
+                        ) : (
+                            <div className="font-bold font-mono text-sm text-foreground">
+                                {trade.total.toLocaleString()}
+                                <span className="text-[10px] ml-0.5 font-normal opacity-70 text-muted-foreground">KRW</span>
+                            </div>
+                        )}
+                    </div>
+                </div>
+
+                {/* 2. Info Row: Badges & Unit Price */}
+                <div className="flex justify-between items-center mb-1.5">
+                    <div className="flex items-center gap-1.5">
+                        <Badge 
+                            variant="outline" 
+                            className={cn(
+                                "text-[10px] px-1.5 py-0 h-4.5 font-bold border-0",
+                                trade.type === 'buy' 
+                                    ? "text-red-600 bg-red-100 dark:bg-red-500/10" 
+                                    : "text-blue-600 bg-blue-100 dark:bg-blue-500/10"
+                            )}
+                        >
+                            {trade.type === 'buy' ? '매수' : '매도'}
+                        </Badge>
+                        <span className="text-[9px] text-muted-foreground bg-muted px-1.5 rounded-[3px] h-4.5 flex items-center whitespace-nowrap">
+                            {trade.orderType === 'limit' ? '지정가' : '시장가'}
+                        </span>
+                    </div>
+                    
+                    <div className="flex items-center gap-1">
+                        <span className="font-bold text-sm text-foreground/90">{trade.price.toLocaleString()}</span>
+                        <span className="text-[10px] text-muted-foreground font-normal">KRW</span>
+                    </div>
+                </div>
+
+                {/* 3. Detail Row: Time & Amount */}
+                <div className="text-[10px] text-muted-foreground font-mono flex items-center gap-1.5 opacity-80">
+                    <span>{trade.time}</span>
+                    <span className="w-px h-2 bg-border"></span>
+                    <span>{trade.amount} {trade.ticker}</span>
+                </div>
+
+                {/* 4. Action Button */}
+                <div className="mt-2.5 flex justify-end">
+                    <Button 
+                        size="sm" 
+                        variant={currentReviews[trade.id] ? "ghost" : "default"} 
+                        className={cn(
+                            "h-7 text-xs px-3 rounded-lg transition-all w-full sm:w-auto",
+                            currentReviews[trade.id] 
+                                ? "text-muted-foreground hover:text-foreground bg-muted/50 hover:bg-muted" 
+                                : "font-bold shadow-sm hover:shadow-primary/25"
+                        )}
+                        onClick={() => handleOpenReview(trade.id)}
+                    >
+                        {currentReviews[trade.id] ? (
+                            <>
+                                <Check className="w-3 h-3 mr-1" /> 복기 완료
+                            </>
+                        ) : (
+                            <>
+                                <PenTool className="w-3 h-3 mr-1" /> 복기하기
+                            </>
+                        )}
+                    </Button>
+                </div>
+            </div>
+        </div>
+    );
 
     return (
         <div className="space-y-4 mb-8">
             <div className="flex items-center justify-between sticky top-0 bg-background py-2 z-10">
-                <h3 className="text-base font-bold flex items-center gap-2">
-                    <div className="w-1 h-4 bg-primary rounded-full" />
+                <h3 className="text-sm font-bold flex items-center gap-2">
+                    <BookOpen className="w-4 h-4 text-primary" />
                     투자 일지
                 </h3>
-                <Sheet>
+                <Sheet open={isSheetOpen} onOpenChange={setIsSheetOpen}>
                     <SheetTrigger asChild>
                         <Button size="sm" variant="outline" className="gap-2 text-xs h-7 px-2">
                             <PenTool className="w-3 h-3" />
@@ -377,79 +597,221 @@ export default function InvestmentJournal({ selectedDate }: InvestmentJournalPro
                     <SheetContent className="overflow-y-auto sm:max-w-md">
                         <SheetHeader>
                             <SheetTitle>투자 일지 ({format(selectedDate, 'MM.dd')})</SheetTitle>
-                            <SheetDescription>
+                            <SheetDescription className="hidden">
                                 {diaryStep === 'select' ? '오늘의 매매 성과를 확인하고 일지를 작성해보세요.' : '오늘의 매매를 복기해보세요.'}
                             </SheetDescription>
                         </SheetHeader>
                         
                         <div className="py-6">
-                            {diaryStep === 'select' ? (
-                                <div className="space-y-6">
-                                    <div className="rounded-xl border bg-card p-6 shadow-sm mb-4">
-                                        <div className="text-center mb-6">
-                                            <div className="text-xs font-medium text-muted-foreground mb-1 uppercase tracking-wider">순매수 (Net)</div>
-                                            <div className={`text-3xl font-bold ${recapData.net > 0 ? 'text-red-500' : 'text-blue-500'}`}>
-                                                {recapData.net > 0 ? '+' : ''}{recapData.net.toLocaleString()}원
+                            {diaryStep === 'dashboard' ? (
+                                <div className="space-y-6 pt-4">
+                                    {/* 2. Review Progress & Action */}
+                                    <div className="space-y-4 px-1">
+                                        <div className="flex items-end justify-between px-2">
+                                            <h4 className="font-bold text-lg flex items-center gap-2">
+                                                매매 복기
+                                                {journalStats.reviewedCount === journalStats.totalTrades && (
+                                                    <Badge className="bg-green-500 hover:bg-green-600 border-none text-white px-1.5 py-0 h-5">Done</Badge>
+                                                )}
+                                            </h4>
+                                            <div className="flex items-baseline gap-1">
+                                                <span className="text-2xl font-black text-primary">{journalStats.reviewedCount}</span>
+                                                <span className="text-lg font-semibold text-muted-foreground/40">/{journalStats.totalTrades}</span>
                                             </div>
                                         </div>
-                                        
-                                        <div className="grid grid-cols-2 gap-8 relative">
-                                            {/* Vertical Divider */}
-                                            <div className="absolute left-1/2 top-2 bottom-2 w-px bg-border -translate-x-1/2" />
-                                            
-                                            <div className="text-center">
-                                                <div className="text-xs text-muted-foreground mb-1">총 매수</div>
-                                                <div className="font-semibold text-lg text-red-500 mb-1">{recapData.buyTotal.toLocaleString()}</div>
-                                                
-                                                {/* Buy Order Type Ratio Bar */}
-                                                <div className="mt-2 px-2">
-                                                    <div className="flex justify-between text-[10px] text-muted-foreground mb-1">
-                                                        <span>시장가 {recapData.buyMarketRatio}%</span>
-                                                        <span>지정가 {recapData.buyLimitRatio}%</span>
-                                                    </div>
-                                                    <div className="h-1.5 w-full bg-muted rounded-full overflow-hidden flex">
-                                                        <div className="h-full bg-orange-400" style={{ width: `${recapData.buyMarketRatio}%` }} />
-                                                        <div className="h-full bg-blue-400" style={{ width: `${recapData.buyLimitRatio}%` }} />
-                                                    </div>
-                                                </div>
-                                            </div>
-                                            <div className="text-center">
-                                                <div className="text-xs text-muted-foreground mb-1">총 매도</div>
-                                                <div className="font-semibold text-lg text-blue-500 mb-1">{recapData.sellTotal.toLocaleString()}</div>
-                                                
-                                                {/* Sell Order Type Ratio Bar */}
-                                                <div className="mt-2 px-2">
-                                                    <div className="flex justify-between text-[10px] text-muted-foreground mb-1">
-                                                        <span>시장가 {recapData.sellMarketRatio}%</span>
-                                                        <span>지정가 {recapData.sellLimitRatio}%</span>
-                                                    </div>
-                                                    <div className="h-1.5 w-full bg-muted rounded-full overflow-hidden flex">
-                                                        <div className="h-full bg-orange-400" style={{ width: `${recapData.sellMarketRatio}%` }} />
-                                                        <div className="h-full bg-blue-400" style={{ width: `${recapData.sellLimitRatio}%` }} />
-                                                    </div>
-                                                </div>
-                                            </div>
-                                        </div>
-                                    </div>
 
-                                    {/* Market Snapshot */}
-                                    <div className="grid grid-cols-2 sm:grid-cols-3 gap-2 mb-6">
-                                        {['dominance', 'kimchi', 'volume', 'fear', 'drop'].map(id => (
-                                            <div key={id} className="bg-muted/30 p-2 rounded-lg flex flex-col items-center justify-center border border-border/50 text-center">
-                                                <span className="text-[10px] text-muted-foreground mb-1">{indicatorData[id as IndicatorId].title}</span>
-                                                <span className={`text-base font-bold ${id === 'kimchi' ? 'text-red-500' : ''}`}>
-                                                    {indicatorData[id as IndicatorId].value}
+                                        {/* Progress Bar */}
+                                        <div className="h-3 bg-secondary rounded-full overflow-hidden">
+                                            <div 
+                                                className="h-full bg-primary rounded-full transition-all duration-1000 ease-out" 
+                                                style={{ width: `${journalStats.totalTrades > 0 ? (journalStats.reviewedCount / journalStats.totalTrades) * 100 : 0}%` }} 
+                                            />
+                                        </div>
+
+                                        {/* Main CTA */}
+                                        <Button 
+                                            size="lg" 
+                                            className={cn(
+                                                "w-full h-16 text-lg font-bold rounded-2xl transition-all shadow-lg hover:-translate-y-1",
+                                                journalStats.totalTrades - journalStats.reviewedCount > 0
+                                                    ? "bg-primary hover:bg-primary/90 shadow-primary/25" 
+                                                    : "bg-green-500 hover:bg-green-600 shadow-green-500/25"
+                                            )}
+                                            onClick={() => setDiaryStep('trades')}
+                                        >
+                                            <div className="flex flex-col items-center leading-none gap-1">
+                                                <span className="flex items-center gap-2">
+                                                    {journalStats.totalTrades - journalStats.reviewedCount > 0 
+                                                        ? '매매 복기 시작하기' 
+                                                        : '매매 내역 다시보기'} 
+                                                    <ArrowRight className="w-5 h-5 stroke-[3]" />
                                                 </span>
+                                                {journalStats.totalTrades - journalStats.reviewedCount > 0 && (
+                                                    <span className="text-[10px] opacity-80 font-normal">
+                                                        남은 매매 {journalStats.totalTrades - journalStats.reviewedCount}건
+                                                    </span>
+                                                )}
                                             </div>
-                                        ))}
+                                        </Button>
                                     </div>
+                                </div>
+                            ) : diaryStep === 'trades' ? (
+                                <div className="space-y-4 animate-in slide-in-from-right-4 duration-300">
+                                    <div className="flex items-center justify-between mb-2">
+                                        <div className="flex items-center gap-2">
+                                            <Button variant="ghost" size="icon" className="-ml-2 h-8 w-8" onClick={() => setDiaryStep('dashboard')}>
+                                                <ArrowRight className="w-4 h-4 rotate-180" />
+                                            </Button>
+                                            <h3 className="font-bold text-lg">전체 매매 내역</h3>
+                                        </div>
+                                        <Tabs value={viewMode} onValueChange={(v) => setViewMode(v as any)} className="w-[180px]">
+                                            <TabsList className="grid w-full grid-cols-2 h-8">
+                                                <TabsTrigger value="ticker" className="text-xs h-6">종목별</TabsTrigger>
+                                                <TabsTrigger value="timeline" className="text-xs h-6">시간순</TabsTrigger>
+                                            </TabsList>
+                                        </Tabs>
+                                    </div>
+                                    
+                                    <ScrollArea className="h-[calc(100vh-180px)] pr-4 -mr-4">
+                                        <div className="space-y-3 pr-4 pb-4">
+                                            {viewMode === 'timeline' ? (
+                                                mockRawTrades.map(trade => renderTradeItem(trade))
+                                            ) : (
+                                                <Accordion type="multiple" className="space-y-3">
+                                                    {Object.entries(tradesByTicker).map(([ticker, trades]) => {
+                                                        const totalPnl = trades.reduce((sum, t) => sum + (t.pnl || 0), 0);
+                                                        // const reviewedCount = trades.filter(t => currentReviews[t.id]).length;
+                                                        
+                                                        // Filter for "Closed Trades" (Sell) that need review or are reviewed
+                                                        // We focus on Sell trades as "Closed" units for review
+                                                        const sellTrades = trades.filter(t => t.type === 'sell');
+                                                        const buyTrades = trades.filter(t => t.type === 'buy');
+                                                        const reviewedSellCount = sellTrades.filter(t => currentReviews[t.id]).length;
+                                                        const isProfit = totalPnl >= 0;
 
-                                    <Button className="w-full h-12 text-lg" onClick={() => setDiaryStep('write')}>
-                                        일지 작성하기 <ArrowRight className="ml-2 w-5 h-5" />
-                                    </Button>
+                                                        return (
+                                                            <AccordionItem key={ticker} value={ticker} className="border rounded-xl bg-card px-3 overflow-hidden shadow-sm">
+                                                                <AccordionTrigger className="hover:no-underline py-3">
+                                                                    <div className="flex flex-1 items-center justify-between mr-2 min-w-0">
+                                                                        <div className="flex items-center gap-2 min-w-0">
+                                                                            <span className="font-black text-lg truncate">{ticker}</span>
+                                                                            <Badge variant="secondary" className="text-[10px] h-5 font-normal bg-muted whitespace-nowrap px-1.5">
+                                                                                {sellTrades.length}건 마감
+                                                                            </Badge>
+                                                                            <span className="text-[10px] text-muted-foreground whitespace-nowrap hidden sm:inline-block">
+                                                                                (복기 {reviewedSellCount}/{sellTrades.length})
+                                                                            </span>
+                                                                        </div>
+                                                                        <div className={`font-bold font-mono text-sm whitespace-nowrap ml-2 ${isProfit ? 'text-red-500' : 'text-blue-500'}`}>
+                                                                            {totalPnl > 0 ? '+' : ''}{totalPnl.toLocaleString()}
+                                                                            <span className="text-[10px] text-muted-foreground ml-0.5 font-normal">KRW</span>
+                                                                        </div>
+                                                                    </div>
+                                                                </AccordionTrigger>
+                                                                <AccordionContent className="pt-1 pb-3 space-y-3">
+                                                                    {/* 1. Unreviewed Closed Trades (Priority) */}
+                                                                    {sellTrades.filter(t => !currentReviews[t.id]).length > 0 && (
+                                                                        <div className="mb-4">
+                                                                            <div className="text-xs font-bold text-muted-foreground mb-2 flex items-center gap-1">
+                                                                                <div className="w-1.5 h-1.5 rounded-full bg-orange-500 animate-pulse" />
+                                                                                복기 필요한 마감 거래
+                                                                            </div>
+                                                                            <div className="space-y-2">
+                                                                                {sellTrades.filter(t => !currentReviews[t.id]).map(trade => renderTradeItem(trade))}
+                                                                            </div>
+                                                                        </div>
+                                                                    )}
+
+                                                                    {/* 2. Reviewed Closed Trades */}
+                                                                    {sellTrades.filter(t => currentReviews[t.id]).length > 0 && (
+                                                                        <div className="mb-4">
+                                                                            <div className="text-xs font-bold text-muted-foreground mb-2 flex items-center gap-1">
+                                                                                <Check className="w-3 h-3" />
+                                                                                복기 완료된 거래
+                                                                            </div>
+                                                                            <div className="space-y-2">
+                                                                                {sellTrades.filter(t => currentReviews[t.id]).map(trade => renderTradeItem(trade))}
+                                                                            </div>
+                                                                        </div>
+                                                                    )}
+
+                                                                    {/* 3. Buy History (Reference) */}
+                                                                    {buyTrades.length > 0 && (
+                                                                         <div className="opacity-60 grayscale-[0.5] hover:opacity-100 hover:grayscale-0 transition-all">
+                                                                            <div className="text-xs font-bold text-muted-foreground mb-2 pl-1">
+                                                                                매수 이력 (참고)
+                                                                            </div>
+                                                                            <div className="space-y-2">
+                                                                                {buyTrades.map(trade => renderTradeItem(trade))}
+                                                                            </div>
+                                                                        </div>
+                                                                    )}
+                                                                </AccordionContent>
+                                                            </AccordionItem>
+                                                        );
+                                                    })}
+                                                </Accordion>
+                                            )}
+                                        </div>
+                                    </ScrollArea>
                                 </div>
                             ) : (
                                 <div className="space-y-6 animate-in slide-in-from-right-4">
+                                     {selectedTradeId && (
+                                         <div className="flex flex-col gap-3 mb-6 p-4 bg-muted/30 rounded-xl border border-border/50">
+                                            {(() => {
+                                                const trade = mockRawTrades.find(t => t.id === selectedTradeId);
+                                                if (!trade) return null;
+                                                return (
+                                                    <>
+                                                        <div className="flex justify-between items-start">
+                                                            <div className="flex items-center gap-2">
+                                                                <span className="font-black text-xl">{trade.ticker}</span>
+                                                                <Badge variant="outline" className={cn(
+                                                                    "text-[10px] px-1.5 py-0 h-5 font-bold border-0",
+                                                                    trade.type === 'buy' 
+                                                                        ? "text-red-600 bg-red-100 dark:bg-red-500/10" 
+                                                                        : "text-blue-600 bg-blue-100 dark:bg-blue-500/10"
+                                                                )}>
+                                                                    {trade.type === 'buy' ? '매수' : '매도'}
+                                                                </Badge>
+                                                                <span className="text-[10px] text-muted-foreground bg-muted px-1.5 py-0.5 rounded flex items-center">
+                                                                    {format(new Date(`${trade.date}T${trade.time}`), 'MM.dd HH:mm')}
+                                                                </span>
+                                                            </div>
+                                                            {trade.pnl && (
+                                                                <div className={cn(
+                                                                    "font-bold font-mono text-sm",
+                                                                    trade.pnl > 0 ? "text-red-500" : "text-blue-500"
+                                                                )}>
+                                                                    {trade.pnl > 0 ? '+' : ''}{trade.pnl.toLocaleString()} <span className="text-[10px] text-muted-foreground font-normal">KRW</span>
+                                                                </div>
+                                                            )}
+                                                        </div>
+
+                                                        <div className="grid grid-cols-2 gap-x-4 gap-y-2 text-sm">
+                                                            <div className="flex justify-between items-center py-1 border-b border-border/30 border-dashed">
+                                                                <span className="text-muted-foreground text-xs">체결가</span>
+                                                                <span className="font-mono font-medium">{trade.price.toLocaleString()}</span>
+                                                            </div>
+                                                            <div className="flex justify-between items-center py-1 border-b border-border/30 border-dashed">
+                                                                <span className="text-muted-foreground text-xs">수량</span>
+                                                                <span className="font-mono font-medium">{trade.amount} {trade.ticker}</span>
+                                                            </div>
+                                                            <div className="flex justify-between items-center py-1 border-b border-border/30 border-dashed">
+                                                                <span className="text-muted-foreground text-xs">총액</span>
+                                                                <span className="font-mono font-medium">{trade.total.toLocaleString()}</span>
+                                                            </div>
+                                                            <div className="flex justify-between items-center py-1 border-b border-border/30 border-dashed">
+                                                                <span className="text-muted-foreground text-xs">주문타입</span>
+                                                                <span className="font-mono font-medium text-xs">{trade.orderType === 'limit' ? '지정가' : '시장가'}</span>
+                                                            </div>
+                                                        </div>
+                                                    </>
+                                                );
+                                            })()}
+                                         </div>
+                                     )}
                                     {/* 1. Mood Check */}
                                     <div className="space-y-3">
                                         <Label className="text-base">오늘의 매매 기분은?</Label>
@@ -547,7 +909,7 @@ export default function InvestmentJournal({ selectedDate }: InvestmentJournalPro
                                     </div>
                                     
                                     <div className="flex gap-3 pt-4">
-                                        <Button variant="outline" className="flex-1" onClick={() => setDiaryStep('select')}>
+                                        <Button variant="outline" className="flex-1" onClick={() => setDiaryStep(selectedTradeId ? 'trades' : 'dashboard')}>
                                             이전
                                         </Button>
                                         <SheetClose asChild>
@@ -568,80 +930,9 @@ export default function InvestmentJournal({ selectedDate }: InvestmentJournalPro
             {/* Journal Entry Display */}
             {currentEntry ? (
                 <div className="overflow-hidden rounded-xl border bg-card text-card-foreground shadow-sm transition-all hover:shadow-md">
-                    {/* Header with Mood Gradient */}
-                    <div className={cn(
-                        "relative p-6 overflow-hidden",
-                        currentEntry.moodEmoji === 'best' || currentEntry.moodEmoji === 'good' 
-                            ? "bg-gradient-to-br from-emerald-500/10 via-green-500/5 to-background"
-                            : currentEntry.moodEmoji === 'bad' || currentEntry.moodEmoji === 'angry'
-                            ? "bg-gradient-to-br from-rose-500/10 via-red-500/5 to-background"
-                            : "bg-gradient-to-br from-blue-500/10 via-indigo-500/5 to-background"
-                    )}>
-                        <div className="flex justify-between items-start relative z-10">
-                            <div className="flex gap-4 items-center">
-                                <div className="text-4xl animate-in zoom-in duration-300 origin-bottom-left hover:scale-110 transition-transform cursor-default">
-                                    {{
-                                        'best': '🤑',
-                                        'good': '😌',
-                                        'soso': '😐',
-                                        'bad': '😰',
-                                        'angry': '🤬'
-                                    }[currentEntry.moodEmoji || ''] || '🤔'}
-                                </div>
-                                <div>
-                                    <div className="flex items-center gap-2 mb-0.5">
-                                        <h4 className="font-bold text-lg leading-none">
-                                            {{
-                                                'best': '최고의 하루!',
-                                                'good': '좋은 흐름이에요',
-                                                'soso': '무난한 하루',
-                                                'bad': '아쉬운 결과',
-                                                'angry': '멘탈 관리 필요'
-                                            }[currentEntry.moodEmoji || ''] || '기록 없음'}
-                                        </h4>
-                                    </div>
-                                    <p className="text-xs text-muted-foreground flex items-center gap-1">
-                                        <Calendar className="w-3 h-3" />
-                                        {format(selectedDate, 'yyyy.MM.dd')}
-                                    </p>
-                                </div>
-                            </div>
-
-                            {currentEntry.moodScore !== undefined && (
-                                <div className="flex flex-col items-end">
-                                    <div className="text-3xl font-black text-foreground tracking-tight">
-                                        {currentEntry.moodScore}
-                                        <span className="text-sm font-medium text-muted-foreground ml-1">점</span>
-                                    </div>
-                                    <div className="text-[10px] text-muted-foreground font-medium uppercase tracking-wider">Trading Score</div>
-                                </div>
-                            )}
-                        </div>
-                    </div>
-
                     {/* Content Body */}
                     <div className="p-6 pt-2">
-                        {/* Market Snapshot Strip */}
-                        <div className="-mt-6 mb-6 mx-0 bg-background/50 backdrop-blur-sm border-b border-border/50 p-3 flex gap-4 overflow-x-auto no-scrollbar mask-linear-fade">
-                             <div className="flex items-center gap-3 min-w-max px-2">
-                                <div className="flex flex-col items-center min-w-[80px]">
-                                    <span className="text-[10px] text-muted-foreground mb-0.5">BTC 도미넌스</span>
-                                    <span className="font-bold text-sm">52.1%</span>
-                                </div>
-                                <div className="w-px h-6 bg-border/50" />
-                                <div className="flex flex-col items-center min-w-[80px]">
-                                    <span className="text-[10px] text-muted-foreground mb-0.5">김치프리미엄</span>
-                                    <span className="font-bold text-sm text-red-500">1.38%</span>
-                                </div>
-                                <div className="w-px h-6 bg-border/50" />
-                                <div className="flex flex-col items-center min-w-[80px]">
-                                    <span className="text-[10px] text-muted-foreground mb-0.5">공포/탐욕</span>
-                                    <span className="font-bold text-sm">41</span>
-                                </div>
-                             </div>
-                        </div>
-
-                        {/* Memo Section - Notebook Style */}
+                        {/* Global Memo Section (if exists) */}
                         {currentEntry.content && (
                             <div className="mb-6 relative group">
                                 <div className="absolute top-0 left-0 -translate-x-1 -translate-y-2 opacity-10">
@@ -654,61 +945,132 @@ export default function InvestmentJournal({ selectedDate }: InvestmentJournalPro
                                 </div>
                             </div>
                         )}
-
-                        {/* Tags Cloud */}
+                        
+                        {/* Global Tags Cloud (if exists) */}
                         {currentEntry.tags && currentEntry.tags.length > 0 && (
-                            <div className="mb-6">
+                             <div className="mb-6">
                                 <div className="flex flex-wrap gap-2">
-                                    {currentEntry.tags.map(tag => {
-                                        // Auto-color based on keyword (simple heuristic)
-                                        const isNegative = ['뇌동매매', '물타기', '손절', 'FOMO', '기도매매', 'RSI 과매수', '고점매도'].some(k => tag.includes(k));
-                                        const isPositive = ['익절', '원칙준수', '데이터', '저점매수', '골든크로스'].some(k => tag.includes(k));
+                                    {currentEntry.tags.map(tag => (
+                                        <Badge key={tag} variant="outline" className="px-3 py-1 text-xs border bg-background/50">
+                                            #{tag}
+                                        </Badge>
+                                    ))}
+                                </div>
+                            </div>
+                        )}
+
+                        {/* Reviewed Trades List - Replaces generic TradeFlowChart */}
+                        {currentEntry.trades && currentEntry.trades.length > 0 && (
+                            <div className="mt-2">
+                                <div className="space-y-4">
+                                    {currentEntry.trades.map(trade => {
+                                        const review = currentEntry.reviews?.[trade.id];
+                                        if (!review) return null; // Only show reviewed trades in detail? Or all? User asked for sync.
+                                        // User complained "Review trade and trade performance don't match". 
+                                        // Let's show ALL trades, but highlight reviewed ones with their details.
                                         
                                         return (
-                                            <Badge 
-                                                key={tag} 
-                                                variant="outline" 
-                                                className={cn(
-                                                    "px-3 py-1 text-xs border bg-background/50",
-                                                    isNegative ? "border-red-200 text-red-600 bg-red-50 dark:bg-red-950/20 dark:border-red-800 dark:text-red-400" :
-                                                    isPositive ? "border-blue-200 text-blue-600 bg-blue-50 dark:bg-blue-950/20 dark:border-blue-800 dark:text-blue-400" :
-                                                    "border-muted-foreground/20 text-muted-foreground"
-                                                )}
-                                            >
-                                                #{tag}
-                                            </Badge>
+                                            <div key={trade.id} className={cn(
+                                                "rounded-xl border overflow-hidden transition-all",
+                                                review ? "bg-card border-border shadow-sm" : "bg-muted/10 border-border/50 border-dashed"
+                                            )}>
+                                                {/* Trade Header */}
+                                                <div className={cn(
+                                                    "p-3 flex justify-between items-center text-sm border-b",
+                                                    review ? "bg-muted/30 border-border/50" : "bg-transparent border-border/30"
+                                                )}>
+                                                     <div className="flex items-center gap-2">
+                                                        <Badge variant="outline" className="text-[10px] h-5 bg-background/50">{trade.ticker}</Badge>
+                                                        <span className={trade.type === 'buy' ? 'text-red-500 font-bold' : 'text-blue-500 font-bold'}>
+                                                            {trade.type === 'buy' ? '매수' : '매도'}
+                                                        </span>
+                                                        <span className="text-muted-foreground text-xs font-mono">{trade.time}</span>
+                                                     </div>
+                                                     <div className="flex items-center gap-3">
+                                                         <div className="font-mono font-medium text-right">
+                                                            {trade.pnl ? (
+                                                                <span className={trade.pnl > 0 ? 'text-red-500' : 'text-blue-500'}>
+                                                                    {trade.pnl > 0 ? '+' : ''}{trade.pnl.toLocaleString()} <span className="text-[10px] text-muted-foreground">KRW</span>
+                                                                </span>
+                                                            ) : (
+                                                                <span>{trade.total.toLocaleString()} <span className="text-[10px] text-muted-foreground">KRW</span></span>
+                                                            )}
+                                                         </div>
+                                                     </div>
+                                                </div>
+                                                
+                                                {/* Review Content */}
+                                                <div className="p-4">
+                                                     {review ? (
+                                                         <div className="space-y-3">
+                                                             <div className="flex items-start justify-between">
+                                                                 <div className="space-y-2">
+                                                                     {review.tags && review.tags.length > 0 && (
+                                                                         <div className="flex flex-wrap gap-1.5">
+                                                                             {review.tags.map(tag => (
+                                                                                 <Badge key={tag} variant="secondary" className="text-[10px] px-2 py-0.5 h-auto font-normal">
+                                                                                     #{tag}
+                                                                                 </Badge>
+                                                                             ))}
+                                                                         </div>
+                                                                     )}
+                                                                     {review.content && (
+                                                                         <p className="text-sm text-foreground/80 leading-relaxed">
+                                                                             {review.content}
+                                                                         </p>
+                                                                     )}
+                                                                 </div>
+                                                                 <div className="flex flex-col items-end gap-1 min-w-[60px]">
+                                                                     <span className="text-3xl" title={review.moodEmoji}>
+                                                                        {{
+                                                                            'best': '🤑', 'good': '😌', 'soso': '😐', 'bad': '😰', 'angry': '🤬'
+                                                                        }[review.moodEmoji] || ''}
+                                                                     </span>
+                                                                     <span className="font-bold text-sm text-muted-foreground">
+                                                                        {review.moodScore}점
+                                                                     </span>
+                                                                 </div>
+                                                             </div>
+                                                             
+                                                             <Button variant="ghost" size="sm" className="w-full h-8 text-xs text-muted-foreground hover:text-primary -mb-2 mt-2" onClick={() => handleOpenReview(trade.id)}>
+                                                                 <PenTool className="w-3 h-3 mr-1.5" /> Edit Review
+                                                             </Button>
+                                                         </div>
+                                                     ) : (
+                                                         <div className="flex items-center justify-between py-1">
+                                                             <p className="text-xs text-muted-foreground">
+                                                                 아직 복기하지 않은 매매입니다.
+                                                             </p>
+                                                             <Button size="sm" variant="outline" className="h-8 text-xs gap-1.5" onClick={() => handleOpenReview(trade.id)}>
+                                                                 <Plus className="w-3 h-3" /> 복기하기
+                                                             </Button>
+                                                         </div>
+                                                     )}
+                                                </div>
+                                            </div>
                                         );
                                     })}
+                                    
+                                    {/* Footer Message */}
+                                    {currentEntry.trades.every(t => currentEntry.reviews?.[t.id]) && (
+                                        <div className="text-center py-6 text-sm text-muted-foreground/50 flex flex-col items-center gap-2">
+                                            <Check className="w-5 h-5 opacity-50" />
+                                            <span>모든 매매 복기가 완료되었습니다.</span>
+                                        </div>
+                                    )}
                                 </div>
                             </div>
                         )}
-
-                        {/* Trade Performance */}
-                        {currentEntry.trades && currentEntry.trades.length > 0 && (
-                            <div className="mt-4 pt-4 border-t border-border/50">
-                                <div className="flex items-center gap-2 mb-3">
-                                    <div className="p-1 rounded bg-primary/10">
-                                        <TrendingUp className="w-3 h-3 text-primary" />
-                                    </div>
-                                    <span className="text-xs font-bold text-muted-foreground">매매 복기</span>
-                                </div>
-                                <TradeFlowChart trades={currentEntry.trades} />
-                            </div>
-                        )}
+                        
+                        {/* Remove redundant unreviewed message if we are listing them */}
                     </div>
                 </div>
             ) : (
-                <div className="flex flex-col items-center justify-center py-12 px-4 rounded-xl border border-dashed border-border bg-background/50 text-center transition-colors hover:bg-muted/10 group cursor-pointer" onClick={() => setDiaryStep('write')}>
-                    <div className="w-12 h-12 rounded-full bg-muted/30 flex items-center justify-center mb-3 shadow-sm group-hover:scale-110 transition-transform">
-                        <PenTool className="w-5 h-5 text-muted-foreground group-hover:text-primary transition-colors" />
-                    </div>
+                <div className="flex flex-col items-center justify-center py-12 px-4 rounded-xl border border-dashed border-muted-foreground/20 bg-muted/5 text-center transition-colors hover:bg-muted/10">
                     <h3 className="text-sm font-semibold mb-1">작성된 일지가 없어요</h3>
                     <p className="text-xs text-muted-foreground mb-4 max-w-[200px] break-keep">
                         오늘의 매매를 복기하고 더 나은 내일을 준비해보세요.
                     </p>
-                    <Button variant="outline" size="sm" className="h-8 text-xs bg-background">
-                        일지 작성하기
-                    </Button>
                 </div>
             )}
         </div>

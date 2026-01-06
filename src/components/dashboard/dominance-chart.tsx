@@ -393,12 +393,9 @@ export default function DominanceChart() {
     }
 
     return (
-        <Card className="border-none shadow-none bg-transparent w-1/2 overflow-hidden mt-2">
+        <Card className="border-none shadow-none bg-transparent w-full overflow-hidden mt-0">
             <CardHeader className="px-0 pt-0 pb-2">
                 <div className="flex flex-col gap-2 items-start">
-                    <div className="flex items-center gap-2 pt-1">
-                        <h3 className="text-sm font-bold text-foreground">보조지표</h3>
-                    </div>
                     <div className="w-full flex justify-end">
                         <div className="text-right">
                             <div className="flex flex-col items-end gap-1">
@@ -434,8 +431,8 @@ export default function DominanceChart() {
                         <ComposedChart data={chartData} margin={{ top: 5, right: 0, left: 0, bottom: 20 }}>
                              <defs>
                                 <linearGradient id="colorValue" x1="0" y1="0" x2="0" y2="1">
-                                    <stop offset="5%" stopColor={isDrawdownChart ? '#16a34a' : 'hsl(var(--bullish))'} stopOpacity={isDrawdownChart ? 1 : 0.3}/>
-                                    <stop offset="95%" stopColor={isDrawdownChart ? '#16a34a' : 'hsl(var(--bullish))'} stopOpacity={isDrawdownChart ? 1 : 0}/>
+                                    <stop offset="5%" stopColor={isDrawdownChart ? '#16a34a' : '#10b981'} stopOpacity={isDrawdownChart ? 1 : 0.3}/>
+                                    <stop offset="95%" stopColor={isDrawdownChart ? '#16a34a' : '#10b981'} stopOpacity={isDrawdownChart ? 1 : 0}/>
                                 </linearGradient>
                             </defs>
                             <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="hsl(var(--border))" />
@@ -496,7 +493,7 @@ export default function DominanceChart() {
                                 type="monotone" 
                                 dataKey="value" 
                                 name={isDrawdownChart ? "고점대비낙폭" : currentIndicator.title} 
-                                stroke={isDrawdownChart ? '#16a34a' : 'hsl(var(--bullish))'}
+                                stroke={isDrawdownChart ? '#16a34a' : '#10b981'}
                                 fill="url(#colorValue)"
                                 fillOpacity={1}
                             />

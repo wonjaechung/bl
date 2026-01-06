@@ -11,6 +11,7 @@ const Header = ({ activeTab, onTabChange }: HeaderProps) => {
     { id: "recommend", label: "추천", hasNotification: true },
     { id: "trends", label: "동향" },
     { id: "calendar", label: "캘린더" },
+    { id: "datalab", label: "데이터랩" },
   ];
 
   return (

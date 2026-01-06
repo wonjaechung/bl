@@ -74,7 +74,7 @@ const QuickOrderBar = ({ onOrder, isSell = false }: { onOrder: (amount: number |
   const sellAmounts = ['10%', '25%', '50%', '100%'];
   
   const amounts = isSell ? sellAmounts : buyAmounts;
-  const ActionIcon = Zap;
+  const ActionIcon = isSell ? Siren : Zap;
   const actionVariant = isSell ? 'destructive' : 'default';
 
   return (
@@ -174,11 +174,27 @@ const FeedItem = ({ item, activeOrder, onSnipeClick, onOrder }: any) => {
             </div>
             
             <div className="flex gap-1">
-                <Button variant="ghost" size="icon" className="h-7 w-7" onClick={() => onSnipeClick(item.id, 'buy')}>
-                    <Zap className={`h-4 w-4 ${id === item.id && actionType === 'buy' ? 'text-primary' : ''}`}/>
+                <Button 
+                    variant="ghost" 
+                    size="icon" 
+                    className={`h-7 w-7 ${id === item.id && actionType === 'buy' ? 'bg-primary/10 text-primary' : ''}`} 
+                    onClick={(e) => {
+                        e.stopPropagation();
+                        onSnipeClick(item.id, 'buy');
+                    }}
+                >
+                    <Zap className="h-4 w-4"/>
                 </Button>
-                <Button variant="ghost" size="icon" className="h-7 w-7" onClick={() => onSnipeClick(item.id, 'sell')}>
-                    <Siren className={`h-4 w-4 ${id === item.id && actionType === 'sell' ? 'text-destructive' : ''}`}/>
+                <Button 
+                    variant="ghost" 
+                    size="icon" 
+                    className={`h-7 w-7 ${id === item.id && actionType === 'sell' ? 'bg-destructive/10 text-destructive' : ''}`} 
+                    onClick={(e) => {
+                        e.stopPropagation();
+                        onSnipeClick(item.id, 'sell');
+                    }}
+                >
+                    <Siren className="h-4 w-4"/>
                 </Button>
             </div>
         </div>
